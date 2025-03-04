@@ -6,6 +6,8 @@ import { ReadingQueue } from '../components/ReadingQueue';
 import { Sparkles, X } from 'lucide-react';
 import { TwitterBookmark, BookmarkStore } from '../types';
 import { analyzeBookmark, findSimilarBookmarks } from '../utils/aiAnalyzer';
+import { supabase } from '../utils/supabaseClient';
+import { getCurrentUser } from '../utils/supabaseStorage';
 
 interface Props {
   store: BookmarkStore;
@@ -36,6 +38,7 @@ export function BookmarksPage({
   filteredAndSortedBookmarks,
 }: Props) {
   const [activeBookmark, setActiveBookmark] = useState<TwitterBookmark | null>(null);
+  const [addingToQueue, setAddingToQueue] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
   const [similarBookmarks, setSimilarBookmarks] = useState<TwitterBookmark[]>([]);
   const [showingSimilarFor, setShowingSimilarFor] = useState<string | null>(null);
@@ -59,6 +62,59 @@ export function BookmarksPage({
         }
       }
     });
+  };
+
+  const handleAddToReadingQueue = async (bookmarkId: string, status: 'unread' | 'reading' | 'completed') => {
+    // First update the bookmark's reading status
+    onUpdateReadingStatus(bookmarkId, status);
+    
+    // Then add to the appropriate queue if not already there
+    if (!store.readingQueue[status].includes(bookmarkId)) {
+      onUpdateStore({
+        ...store,
+        readingQueue: {
+          ...store.readingQueue,
+          [status]: [...store.readingQueue[status], bookmarkId],
+          history: [
+            ...store.readingQueue.history,
+            { bookmarkId, action: status === 'reading' ? 'start' : status === 'completed' ? 'complete' : 'resume', timestamp: new Date().toISOString() }
+          ]
+        }
+      });
+    }
+
+    // Save to database immediately if user is authenticated
+    try {
+      const user = await getCurrentUser();
+      if (user) {
+        // Get the database ID for this bookmark
+        const { data: bookmarkData } = await supabase
+          .from('twitter_bookmarks')
+          .select('id')
+          .eq('tweet_id', bookmarkId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (bookmarkData) {
+          // First delete any existing reading queue entries for this bookmark
+          await supabase
+            .from('reading_queue')
+            .delete()
+            .eq('bookmark_id', bookmarkData.id)
+            .eq('user_id', user.id);
+
+          // Then add the new reading queue entry
+          await supabase.from('reading_queue').insert({
+            user_id: user.id,
+            bookmark_id: bookmarkData.id,
+            status,
+            added_at: new Date().toISOString()
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error saving reading queue to database:', error);
+    }
   };
 
   const handleUpdateProgress = (id: string, progress: number) => {
@@ -89,6 +145,19 @@ export function BookmarksPage({
         b.id === id ? {
           ...b,
           notes: b.notes ? `${b.notes}\n\n${note}` : note
+        } : b
+      )
+    });
+  };
+
+  const handleAddTag = (bookmarkId: string, tag: string) => {
+    onUpdateStore({
+      ...store,
+      bookmarks: store.bookmarks.map(b =>
+        b.id === bookmarkId ? {
+          ...b,
+          tags: [...new Set([...b.tags, tag])],
+          suggestedTags: b.suggestedTags?.filter(t => t !== tag) // Remove from suggestions once added
         } : b
       )
     });
@@ -188,7 +257,9 @@ export function BookmarksPage({
                 onToggleFavorite={handleToggleFavorite}
                 store={store}
                 onOpenReader={setActiveBookmark}
+                onAddToQueue={(status) => handleAddToReadingQueue(bookmark.id, status)}
                 onAnalyze={handleAnalyzeBookmark}
+                onAddTag={handleAddTag}
                 onShowSimilar={handleShowSimilar}
                 isAnalyzing={isAnalyzing === bookmark.id}
                 showMedia={store.settings.showMedia}
@@ -224,7 +295,9 @@ export function BookmarksPage({
                       onToggleFavorite={handleToggleFavorite}
                       store={store}
                       onOpenReader={setActiveBookmark}
+                      onAddToQueue={(status) => handleAddToReadingQueue(bookmark.id, status)}
                       onAnalyze={handleAnalyzeBookmark}
+                      onAddTag={handleAddTag}
                       onShowSimilar={handleShowSimilar}
                       isAnalyzing={isAnalyzing === bookmark.id}
                       showMedia={store.settings.showMedia}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Tag as TagIcon, Plus, Edit2, Trash2, Check, X, Brain, Sparkles } from 'lucide-react';
+import { Tag as TagIcon, Plus, Edit2, Trash2, Check, X, Brain, Sparkles, ArrowDown } from 'lucide-react';
 import { TagHierarchyVisualizer } from '../components/TagHierarchyVisualizer';
 import { TwitterBookmark, BookmarkStore } from '../types';
 import { suggestTags, generateTagGroups } from '../services/aiService';
@@ -23,6 +23,7 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
   const [editedName, setEditedName] = useState('');
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [isGeneratingGroups, setIsGeneratingGroups] = useState(false);
+  const [showTagVisualizer, setShowTagVisualizer] = useState(true);
 
   const tagStats = useMemo(() => {
     const stats = new Map<string, {
@@ -30,6 +31,7 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
       bookmarks: TwitterBookmark[];
       aiTopics: Set<string>;
       sentiment: {
+        total: number;
         positive: number;
         negative: number;
         neutral: number;
@@ -43,7 +45,7 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
             count: 0,
             bookmarks: [],
             aiTopics: new Set(),
-            sentiment: { positive: 0, negative: 0, neutral: 0 }
+            sentiment: { total: 0, positive: 0, negative: 0, neutral: 0 }
           });
         }
         const tagStat = stats.get(tag)!;
@@ -53,12 +55,33 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
           bookmark.aiAnalysis.keyTopics.forEach(topic => tagStat.aiTopics.add(topic));
         }
         if (bookmark.sentiment) {
+          tagStat.sentiment.total++;
           tagStat.sentiment[bookmark.sentiment]++;
         }
       });
     });
 
     return stats;
+  }, [bookmarks]);
+
+  // Collect all AI-suggested tags
+  const aiSuggestedTags = useMemo(() => {
+    const tagMap = new Map<string, {
+      count: number;
+      bookmarks: TwitterBookmark[];
+    }>();
+    
+    bookmarks.forEach(bookmark => {
+      bookmark.suggestedTags?.forEach(tag => {
+        if (!tagMap.has(tag)) {
+          tagMap.set(tag, { count: 0, bookmarks: [] });
+        }
+        const tagStat = tagMap.get(tag)!;
+        tagStat.count++;
+        tagStat.bookmarks.push(bookmark);
+      });
+    });
+    return tagMap;
   }, [bookmarks]);
 
   const tagGroups = useMemo(() => {
@@ -107,7 +130,14 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
       ...store,
       tagGroups: {
         ...store.tagGroups,
-        uncategorized: [...(store.tagGroups?.uncategorized || []), newTag.trim()]
+        uncategorized: store.tagGroups?.uncategorized ? {
+          ...store.tagGroups.uncategorized,
+          tags: [...store.tagGroups.uncategorized.tags, newTag.trim()]
+        } : {
+          tags: [newTag.trim()],
+          color: 'gray',
+          lastModified: new Date().toISOString()
+        }
       }
     });
     setNewTag('');
@@ -137,6 +167,22 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
       }))
     });
     setEditingTag(null);
+  };
+  
+  const handleAddTagToBookmarks = (tag: string, bookmarkIds: string[]) => {
+    onUpdateStore({
+      ...store,
+      bookmarks: store.bookmarks.map(bookmark => {
+        if (bookmarkIds.includes(bookmark.id)) {
+          return {
+            ...bookmark,
+            tags: [...new Set([...bookmark.tags, tag])],
+            suggestedTags: bookmark.suggestedTags?.filter(t => t !== tag)
+          };
+        }
+        return bookmark;
+      })
+    });
   };
 
   const handleGenerateAITags = async () => {
@@ -188,8 +234,19 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <TagHierarchyVisualizer store={store} onUpdateStore={onUpdateStore} />
-      
+      <div className="mb-6">
+        <button 
+          onClick={() => setShowTagVisualizer(!showTagVisualizer)}
+          className="flex items-center gap-2 text-blue-500 hover:text-blue-700 mb-2"
+        >
+          <ArrowDown className={`w-5 h-5 transform ${showTagVisualizer ? 'rotate-180' : ''}`} />
+          {showTagVisualizer ? 'Hide Tag Visualization' : 'Show Tag Visualization'}
+        </button>
+        
+        {showTagVisualizer && (
+          <TagHierarchyVisualizer store={store} onUpdateStore={onUpdateStore} />
+        )}
+      </div>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -197,6 +254,17 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
             Tag Management
           </h2>
           <div className="flex gap-2">
+            <button
+              onClick={handleGenerateAITags}
+              disabled={isGeneratingTags}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                isGeneratingTags
+                  ? 'bg-blue-100 text-blue-400 cursor-wait'
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+              }`}
+            >
+              <Sparkles className="w-5 h-5" /> {isGeneratingTags ? 'Generating...' : 'Generate Tags'}
+            </button>
             <button
               onClick={handleGenerateTagGroups}
               disabled={isGeneratingGroups}
@@ -230,6 +298,61 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
             </button>
           </div>
         </div>
+        
+        {/* AI Suggested Tags Section */}
+        {aiSuggestedTags.size > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-500" />
+                AI Suggested Tags
+              </h3>
+              <div className="px-2 py-0.5 rounded text-sm bg-purple-100 text-purple-800">
+                {aiSuggestedTags.size} tags
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from(aiSuggestedTags.entries()).map(([tag, stats]) => (
+                <div key={tag} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-purple-50">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-500" />
+                      {tag}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const bookmarkIds = stats.bookmarks.map(b => b.id);
+                          handleAddTagToBookmarks(tag, bookmarkIds);
+                        }}
+                        className="px-2 py-1 text-xs bg-purple-500 text-white rounded hover:bg-purple-600 flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Add to all
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Suggested for</span>
+                      <span className="font-medium">{stats.count} bookmarks</span>
+                    </div>
+                    
+                    <div className="text-xs text-gray-500">
+                      {stats.bookmarks.slice(0, 2).map(b => (
+                        <div key={b.id} className="truncate">
+                          {b.postedBy}: {b.content.substring(0, 40)}...
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {tagGroups.map(group => (
           <div key={group.name} className="mb-8">
@@ -320,7 +443,7 @@ export function TagsPage({ store, onUpdateStore, bookmarks }: Props) {
                           <div
                             className="bg-green-500 h-2 rounded-full"
                             style={{
-                              width: `${(stats.sentiment.positive / stats.count) * 100}%`
+                              width: `${stats.sentiment.total > 0 ? (stats.sentiment.positive / stats.sentiment.total) * 100 : 0}%`
                             }}
                           />
                         </div>

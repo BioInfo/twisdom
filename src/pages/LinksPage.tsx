@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Link2, ExternalLink, Calendar, Clock } from 'lucide-react';
+import { Link2, ExternalLink, Calendar, Clock, Info, Tag } from 'lucide-react';
 import { TwitterBookmark } from '../types';
 
 interface Props {
@@ -56,6 +56,14 @@ export function LinksPage({ bookmarks }: Props) {
                         <ExternalLink className="w-4 h-4 ml-1" />
                       </a>
                       <p className="text-sm text-gray-500 mt-1">{link.domain}</p>
+                      {link.context && (
+                        <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                          <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+                            <Info className="w-3 h-3" /> Context
+                          </div>
+                          {link.context}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -69,6 +77,18 @@ export function LinksPage({ bookmarks }: Props) {
                         <Clock className="w-4 h-4 mr-1" />
                         {link.bookmark.readingTime}m
                       </span>
+                      {link.bookmark.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {link.bookmark.tags.slice(0, 3).map(tag => (
+                            <span 
+                              key={tag}
+                              className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full flex items-center gap-1"
+                            >
+                              <Tag className="w-3 h-3" /> {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

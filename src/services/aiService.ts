@@ -25,14 +25,14 @@ export async function analyzeBookmark(bookmark: TwitterBookmark) {
       }
     }
 
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
         {
           role: "system",
           content: `You are an AI assistant helping analyze Twitter bookmarks. 
           Analyze the content for key topics, sentiment, and provide a concise summary.
-          Also suggest relevant collections and estimate reading difficulty.`
+          Also suggest relevant collections, tags, and estimate reading difficulty.`
         },
         {
           role: "user",
@@ -46,6 +46,7 @@ export async function analyzeBookmark(bookmark: TwitterBookmark) {
           4. Reading difficulty (easy/medium/hard)
           5. Estimated read time in minutes
           6. Sentiment analysis (positive/negative/neutral)
+          7. Suggested tags (5-8 relevant tags that would be useful for categorization)
           
           Example format:
           {
@@ -54,7 +55,8 @@ export async function analyzeBookmark(bookmark: TwitterBookmark) {
             "collections": ["collection1"],
             "difficulty": "easy",
             "readTime": 2,
-            "sentiment": "positive"
+            "sentiment": "positive",
+            "suggestedTags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
           }`
         }
       ],
@@ -88,7 +90,8 @@ export async function analyzeBookmark(bookmark: TwitterBookmark) {
       },
       sentiment: analysis.sentiment as 'positive' | 'negative' | 'neutral',
       summary: analysis.summary,
-      aiTags: analysis.topics || []
+      aiTags: analysis.topics || [],
+      suggestedTags: analysis.suggestedTags || []
     };
   } catch (error) {
     console.error('AI Analysis failed:', error instanceof Error ? error.message : error);
@@ -98,7 +101,11 @@ export async function analyzeBookmark(bookmark: TwitterBookmark) {
 
 export async function generateSimilarBookmarks(bookmark: TwitterBookmark, allBookmarks: TwitterBookmark[]) {
   try {
-    const response = await openai.chat.completions.create({
+    if (!openai) {
+      openai = initializeOpenAI();
+      if (!openai) throw new Error('OpenAI client not initialized - missing API key');
+    }
+    const response = await openai!.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
         {
@@ -132,7 +139,11 @@ export async function generateSimilarBookmarks(bookmark: TwitterBookmark, allBoo
 
 export async function suggestCollections(bookmarks: TwitterBookmark[]) {
   try {
-    const response = await openai.chat.completions.create({
+    if (!openai) {
+      openai = initializeOpenAI();
+      if (!openai) throw new Error('OpenAI client not initialized - missing API key');
+    }
+    const response = await openai!.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
         {
@@ -172,7 +183,7 @@ export async function suggestTags(bookmarks: TwitterBookmark[]) {
       }
     }
 
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
         {
@@ -272,14 +283,7 @@ export async function findSimilarBookmarks(bookmark: TwitterBookmark, allBookmar
       }
     }
 
-    if (!openai) {
-      openai = initializeOpenAI();
-      if (!openai) {
-        throw new Error('OpenAI client not initialized - missing API key');
-      }
-    }
-
-    const response = await openai.chat.completions.create({
+    const response = await openai!.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
         {
@@ -291,7 +295,7 @@ export async function findSimilarBookmarks(bookmark: TwitterBookmark, allBookmar
           content: `Find similar bookmarks to:
           Content: "${bookmark.content}"
           Topics: ${bookmark.aiAnalysis?.keyTopics.join(', ')}
-          Tags: ${bookmark.tags.join(', ')}
+          Tags: ${bookmark.tags?.join(', ') || ''}
           
           Available bookmarks:
           ${allBookmarks.map((b, i) => `${i}: ${b.content}`).join('\n')}
@@ -304,7 +308,7 @@ export async function findSimilarBookmarks(bookmark: TwitterBookmark, allBookmar
       max_tokens: 150
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.choices[0].message.content || '{}');
     return result.similarBookmarks as number[];
   } catch (error) {
     if (error instanceof Error) {

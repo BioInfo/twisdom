@@ -12,7 +12,8 @@ import { analyzeBookmark } from './utils/aiAnalyzer';
 import { TwitterBookmark, BookmarkStore } from './types';
 import { loadStore, saveStore, DEFAULT_STORE } from './utils/storage';
 import { loadStoreFromSupabase, saveStoreToSupabase, getCurrentUser, signInWithEmailAndPassword, signUpWithEmailAndPassword, signOut } from './utils/supabaseStorage';
-import { User } from '@supabase/supabase-js';
+import { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { supabase } from './utils/supabaseClient';
 import SupabaseAuth from './components/SupabaseAuth';
 import { migrateLocalStorageToSupabase } from './utils/migrateToSupabase';
 
@@ -23,10 +24,10 @@ const FUTURE_FLAGS = {
 };
 
 export default function App() {
-  const [store, setStore] = useState<BookmarkStore>(DEFAULT_STORE);
+  const [store, setStore] = useState<BookmarkStore>(() => loadStore() || DEFAULT_STORE);
   const [user, setUser] = useState<User | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState<{
     inProgress: boolean;
@@ -38,12 +39,45 @@ export default function App() {
     document.documentElement.classList.toggle('dark', store.theme === 'dark');
   }, [store.theme]);
 
+  // Listen for auth state changes
+  /*
+  useEffect(() => {
+    try {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event: AuthChangeEvent, session: Session | null) => {
+          console.log('Auth state changed:', event, session?.user?.id);
+          if (event === 'SIGNED_IN' && session?.user) {
+            setUser(session.user);
+            setLoading(true);
+            
+            // Load user's data from Supabase
+            const supabaseStore = await loadStoreFromSupabase(session.user.id);
+            if (supabaseStore) {
+              setStore(supabaseStore);
+            }
+            
+            setLoading(false);
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            const localStore = loadStore();
+            if (localStore) {
+              setStore(localStore);
+            }
+          }
+        }
+      );
+      return () => subscription.unsubscribe();
+    } catch (error) {
+      console.error('Error setting up auth state change listener:', error);
+    }
+  }, []);
+  */
   // Check for authenticated user on mount
   useEffect(() => {
     const checkAuth = async () => {
       setLoading(true);
       try {
-        const currentUser = await getCurrentUser();
+        const currentUser = await supabase.auth.getUser().then(({ data }) => data.user);
         setUser(currentUser);
         
         if (currentUser) {
@@ -67,22 +101,16 @@ export default function App() {
             setStore(localStore);
           } else {
             // No localStorage data, try to load from CSV
-            loadSavedCSV().then(bookmarks => {
+            /*loadSavedCSV().then(bookmarks => {
               if (bookmarks) {
                 Promise.all(bookmarks.map(async bookmark => ({
                   ...bookmark,
                   ...(await analyzeBookmark(bookmark))
                 }))).then(analyzedBookmarks => {
-                  const newStore: BookmarkStore = {
-                    ...DEFAULT_STORE,
-                    bookmarks: analyzedBookmarks,
-                    filteredBookmarks: analyzedBookmarks,
-                  };
-                  setStore(newStore);
-                  saveStore(newStore);
+                  setStore({ ...DEFAULT_STORE, bookmarks: analyzedBookmarks, filteredBookmarks: analyzedBookmarks });
                 });
               }
-            });
+            });*/
           }
         }
       } catch (error) {
@@ -97,7 +125,26 @@ export default function App() {
 
   // Save store whenever it changes
   useEffect(() => {
-    if (store && !loading) {
+    // Deduplicate bookmarks based on tweet_id
+    const uniqueBookmarks = Array.from(
+      new Map(store.bookmarks.map(bookmark => [bookmark.id, bookmark])).values()
+    );
+    
+    // If we found duplicates, update the store
+    if (uniqueBookmarks.length !== store.bookmarks.length) {
+      console.log(`Deduplicating bookmarks: ${store.bookmarks.length} -> ${uniqueBookmarks.length}`);
+      
+      setStore(prev => ({
+        ...prev,
+        bookmarks: uniqueBookmarks,
+        filteredBookmarks: uniqueBookmarks
+      }));
+      
+      // Skip saving this time, will save on next effect trigger
+      return;
+    }
+    
+    if (store && Object.keys(store).length > 0) {
       // Skip saving during logout process
       if (isLoggingOut) {
         return;

@@ -31,8 +31,8 @@ export function CollectionsPage({ store, onUpdateStore, bookmarks }: Props) {
           bookmarks: [],
           children: [],
           order: Object.keys(store.nestedCollections).length,
-          parentId: parentCollection,
-          color: 'blue',
+          parentId: parentCollection || undefined,
+          color: 'blue', 
           lastModified: new Date().toISOString()
         }
       }
@@ -73,6 +73,23 @@ export function CollectionsPage({ store, onUpdateStore, bookmarks }: Props) {
     });
   };
 
+  const handleRemoveFromCollection = (collectionId: string, bookmarkId: string) => {
+    const collection = store.nestedCollections[collectionId];
+    if (!collection) return;
+
+    onUpdateStore({
+      ...store,
+      nestedCollections: {
+        ...store.nestedCollections,
+        [collectionId]: {
+          ...collection,
+          bookmarks: collection.bookmarks.filter(id => id !== bookmarkId),
+          lastModified: new Date().toISOString()
+        }
+      }
+    });
+  };
+
   const sortedCollections = useMemo(() => {
     return Object.entries(store.nestedCollections)
       .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0))
@@ -102,12 +119,12 @@ export function CollectionsPage({ store, onUpdateStore, bookmarks }: Props) {
             </button>
           </div>
           
-          <CollectionTree
+          <div className="space-y-2">
+            {/* Collection tree implementation */}
+          </div>
+          {/* <CollectionTree
             store={store}
-            onUpdateStore={onUpdateStore}
-            onDrop={handleDrop} 
-            sortedCollections={sortedCollections}
-          />
+          /> */}
         </div>
         
         {selectedCollection && (

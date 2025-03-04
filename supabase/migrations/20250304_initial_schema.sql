@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS twitter_bookmarks (
   media TEXT,
   sentiment TEXT,
   summary TEXT,
+  ai_tags TEXT[],
+  suggested_tags TEXT[],
+  extracted_links JSONB,
+  ai_analysis JSONB,
   reading_status TEXT DEFAULT 'unread',
   priority TEXT DEFAULT 'medium',
   reading_time INTEGER,
@@ -92,6 +96,7 @@ CREATE TABLE IF NOT EXISTS reading_queue (
   status TEXT DEFAULT 'unread',
   is_favorite BOOLEAN DEFAULT FALSE,
   favorite_category TEXT,
+  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   user_id UUID REFERENCES auth.users(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -263,3 +268,5 @@ CREATE INDEX idx_collections_parent_id ON collections(parent_id);
 CREATE INDEX idx_highlights_bookmark_id ON highlights(bookmark_id);
 CREATE INDEX idx_reading_queue_user_id ON reading_queue(user_id);
 CREATE INDEX idx_reading_queue_status ON reading_queue(status);
+CREATE INDEX idx_twitter_bookmarks_ai_tags ON twitter_bookmarks USING GIN(ai_tags);
+CREATE INDEX idx_twitter_bookmarks_suggested_tags ON twitter_bookmarks USING GIN(suggested_tags);

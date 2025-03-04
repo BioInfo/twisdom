@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ExternalLink, Calendar, Tag, MessageCircle, ImageIcon, BookOpen, Clock, ThumbsUp, ThumbsDown, MinusCircle, BookOpenCheck, Brain, Sparkles, Star, StarOff } from 'lucide-react';
+import { ExternalLink, Calendar, Tag, MessageCircle, ImageIcon, BookOpen, Clock, ThumbsUp, ThumbsDown, MinusCircle, BookOpenCheck, Brain, Sparkles, Star, StarOff, Plus, ListPlus } from 'lucide-react';
 import { TwitterBookmark, BookmarkStore } from '../types';
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   store: BookmarkStore;
   onOpenReader: (bookmark: TwitterBookmark) => void;
   onAnalyze: (bookmark: TwitterBookmark, updateTags?: boolean) => void;
+  onAddTag: (bookmarkId: string, tag: string) => void;
+  onAddToQueue?: (status: 'unread' | 'reading' | 'completed') => void;
   onShowSimilar: (bookmark: TwitterBookmark) => void;
   isAnalyzing: boolean;
   id: string;
@@ -24,6 +26,8 @@ export function BookmarkCard({
   onToggleFavorite,
   onOpenReader, 
   onAnalyze,
+  onAddTag,
+  onAddToQueue,
   onShowSimilar,
   isAnalyzing,
   id,
@@ -32,7 +36,8 @@ export function BookmarkCard({
   store
 }: Props) {
   const [showFavoriteMenu, setShowFavoriteMenu] = useState(false);
-
+  const [showSuggestedTags, setShowSuggestedTags] = useState(false);
+  const [showQueueMenu, setShowQueueMenu] = useState(false);
 
   const isFavorite = (category: string) =>
     store.readingQueue.favorites[category]?.bookmarks.includes(bookmark.id);
@@ -131,6 +136,45 @@ export function BookmarkCard({
             </div>
           )}
         </div>
+        
+        {onAddToQueue && (
+          <div className="relative">
+            <button
+              onClick={() => setShowQueueMenu(!showQueueMenu)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-green-500"
+              title="Add to reading queue"
+            >
+              <ListPlus className="w-5 h-5" />
+            </button>
+            
+            {showQueueMenu && (
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 min-w-[150px] z-10">
+                <button
+                  onClick={() => {
+                    onAddToQueue('unread');
+                    setShowQueueMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                >Add to "Up Next"</button>
+                <button
+                  onClick={() => {
+                    onAddToQueue('reading');
+                    setShowQueueMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                >Add to "In Progress"</button>
+                <button
+                  onClick={() => {
+                    onAddToQueue('completed');
+                    setShowQueueMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                >Add to "Completed"</button>
+              </div>
+            )}
+          </div>
+        )}
+        
         <button
           onClick={() => onOpenReader(bookmark)}
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-blue-500"
@@ -200,6 +244,32 @@ export function BookmarkCard({
                     {topic}
                   </span>
                 ))}
+              </div>
+            )}
+            
+            {bookmark.suggestedTags && bookmark.suggestedTags.length > 0 && (
+              <div className="mt-2">
+                <button 
+                  onClick={() => setShowSuggestedTags(!showSuggestedTags)}
+                  className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  {showSuggestedTags ? 'Hide suggested tags' : 'Show suggested tags'}
+                </button>
+                
+                {showSuggestedTags && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {bookmark.suggestedTags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => onAddTag(bookmark.id, tag)}
+                        className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded flex items-center gap-1 hover:bg-purple-100"
+                      >
+                        <Plus className="w-3 h-3" /> {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

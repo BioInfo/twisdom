@@ -97,6 +97,10 @@ const SupabaseAuth: React.FC<SupabaseAuthProps> = ({ onClose }) => {
       if (!success || error) {
         throw new Error(error || 'Sign in failed');
       }
+      
+      // Close the modal after successful login
+      setMessage('Signed in successfully!');
+      if (onClose) setTimeout(onClose, 1000);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'An error occurred during sign in');
       console.error('Error signing in:', error);

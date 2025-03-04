@@ -301,12 +301,36 @@ supabase db reset
 
 ### Applying Migrations
 
-To apply database migrations:
+Twisdom now includes a dedicated script for applying database migrations. This script will:
+1. Check if Supabase is running, and start it if necessary
+2. Apply all migrations in order
+3. Reset the database (warning: this will delete all data)
+
+To apply migrations using the script:
 
 ```bash
-cd supabase
-supabase db push
+./scripts/apply-migrations.sh
 ```
+
+#### Migration Files
+
+The migration files are located in the `supabase/migrations` directory:
+
+- `20250304_initial_schema.sql`: Initial schema with tables for bookmarks, tags, collections, etc.
+- `20250305_add_ai_columns.sql`: Adds columns for AI analysis data, suggested tags, and extracted links.
+
+#### Manual Migration
+
+If you prefer to apply migrations manually:
+
+```bash
+# Navigate to the supabase directory
+cd supabase 
+
+# Reset the database and apply migrations
+supabase db reset
+```
+This will apply all migrations in the `supabase/migrations` directory in alphabetical order.
 
 ## Migrating from localStorage
 
@@ -343,6 +367,6 @@ To migrate data from localStorage to Supabase:
 
 1. Create the database schema in Supabase Studio
 2. Implement authentication in the Twisdom application
-3. Migrate existing data from localStorage to Supabase
-4. Update the application to use Supabase for data persistence
-5. Implement multi-device synchronization
+3. Migrate existing data from localStorage to Supabase ✅
+4. Update the application to use Supabase for data persistence ✅
+5. Implement multi-device synchronization ✅

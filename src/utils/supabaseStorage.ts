@@ -21,7 +21,7 @@ export async function loadStoreFromSupabase(userId: string): Promise<BookmarkSto
     // Load bookmarks
     const { data: bookmarks, error: bookmarksError } = await supabase
       .from('twitter_bookmarks')
-      .select('id, tweet_id, tweet_date, posted_by, posted_by_profile_pic, posted_by_profile_url, posted_by_handle, tweet_url, content, comments, media, sentiment, summary, reading_status, priority, reading_time, last_read_at, progress, notes, created_at, updated_at')
+      .select('id, tweet_id, tweet_date, posted_by, posted_by_profile_pic, posted_by_profile_url, posted_by_handle, tweet_url, content, comments, media, sentiment, summary, ai_tags, suggested_tags, extracted_links, ai_analysis, reading_status, priority, reading_time, last_read_at, progress, notes, created_at, updated_at')
       .eq('user_id', userId);
       
     if (bookmarksError) {
@@ -29,32 +29,25 @@ export async function loadStoreFromSupabase(userId: string): Promise<BookmarkSto
       return null;
     }
     
-    // Create a mapping between tweet_id and database id (UUID)
-    // Also deduplicate bookmarks by tweet_id (keeping the most recently updated one)
-    const bookmarkIdMap = new Map<string, string>(); 
-    const uniqueBookmarks: any[] = [];
-    const processedTweetIds = new Set<string>();
+    // Create a mapping of tweet_id to database id (UUID)
+    const bookmarkIdMap = new Map<string, string>();
     
-    // Sort bookmarks by updated_at in descending order (most recent first)
-    const sortedBookmarks = [...bookmarks].sort((a, b) => {
-      const dateA = new Date(a.updated_at || a.created_at || 0);
-      const dateB = new Date(b.updated_at || b.created_at || 0);
-      return dateB.getTime() - dateA.getTime();
-    });
+    // Create a map to deduplicate bookmarks by tweet_id
+    // If there are duplicates, keep the most recently updated one
+    const tweetIdToBookmarkMap = new Map<string, any>();
     
-    // Process bookmarks, keeping only the first occurrence of each tweet_id
-    sortedBookmarks.forEach(bookmark => {
-      if (!processedTweetIds.has(bookmark.tweet_id)) {
-        processedTweetIds.add(bookmark.tweet_id);
-        uniqueBookmarks.push(bookmark);
+    for (const bookmark of bookmarks) {
+      const existingBookmark = tweetIdToBookmarkMap.get(bookmark.tweet_id);
+      const currentDate = new Date(bookmark.updated_at || bookmark.created_at || 0);
+      
+      if (!existingBookmark || currentDate > new Date(existingBookmark.updated_at || existingBookmark.created_at || 0)) {
+        tweetIdToBookmarkMap.set(bookmark.tweet_id, bookmark);
         bookmarkIdMap.set(bookmark.tweet_id, bookmark.id);
       }
-    });
+    }
     
-    // Replace the original bookmarks array with the deduplicated one
-    bookmarks.forEach(bookmark => {
-      bookmarkIdMap.set(bookmark.tweet_id, bookmark.id);
-    });
+    // Get the deduplicated bookmarks
+    const uniqueBookmarks = Array.from(tweetIdToBookmarkMap.values());
     
     // Transform bookmarks from Supabase schema to app schema
     store.bookmarks = uniqueBookmarks.map(bookmark => ({
@@ -78,10 +71,11 @@ export async function loadStoreFromSupabase(userId: string): Promise<BookmarkSto
       progress: bookmark.progress,
       notes: bookmark.notes,
       tags: [], // Will be populated below
-      aiTags: [], // Will be populated below
+      aiTags: bookmark.ai_tags || [], 
+      suggestedTags: bookmark.suggested_tags || [],
       highlights: [], // Will be populated below
-      aiAnalysis: undefined, // Will be populated if available
-      extractedLinks: [] // Will be populated if available
+      aiAnalysis: bookmark.ai_analysis ? JSON.parse(bookmark.ai_analysis) : undefined,
+      extractedLinks: bookmark.extracted_links ? JSON.parse(bookmark.extracted_links) : []
     }));
     
     // Create a map of bookmark IDs for easier lookup
@@ -395,12 +389,15 @@ export async function loadStoreFromSupabase(userId: string): Promise<BookmarkSto
  * @param userId The user's ID
  * @returns Promise<{success: boolean; error?: string}> indicating success or failure with error details
  */
-export async function saveStoreToSupabase(store: BookmarkStore, userId: string): Promise<{success: boolean; error?: string}> {
+export async function saveStoreToSupabase(store: BookmarkStore, userId: string, immediate: boolean = false): Promise<{success: boolean; error?: string}> {
   try {
     // This is a simplified implementation that would need to be expanded
-    // to handle updates, deletions, and more complex operations
+    // to handle updates, deletions, and more complex operations 
     
     // Save bookmarks
+    // Create a Set to track which bookmarks we've already processed
+    const processedBookmarks = new Set<string>();
+    
     for (const bookmark of store.bookmarks) {
       // Check if the bookmark already exists
       const { data: existingBookmark, error: fetchError } = await supabase
@@ -414,6 +411,12 @@ export async function saveStoreToSupabase(store: BookmarkStore, userId: string):
         console.error('Error checking for existing bookmark:', fetchError);
         return { success: false, error: fetchError.message };
       }
+
+      // Skip if we've already processed this bookmark in this save operation
+      if (processedBookmarks.has(bookmark.id)) {
+        continue;
+      }
+      processedBookmarks.add(bookmark.id);
       
       let error;
       
@@ -433,6 +436,9 @@ export async function saveStoreToSupabase(store: BookmarkStore, userId: string):
             media: bookmark.media,
             sentiment: bookmark.sentiment,
             summary: bookmark.summary,
+            ai_tags: bookmark.aiTags,
+            suggested_tags: bookmark.suggestedTags,
+            extracted_links: JSON.stringify(bookmark.extractedLinks || []),
             reading_status: bookmark.readingStatus,
             priority: bookmark.priority,
             reading_time: bookmark.readingTime,
@@ -461,6 +467,9 @@ export async function saveStoreToSupabase(store: BookmarkStore, userId: string):
             comments: bookmark.comments,
             media: bookmark.media,
             sentiment: bookmark.sentiment,
+            ai_tags: bookmark.aiTags,
+            suggested_tags: bookmark.suggestedTags,
+            extracted_links: JSON.stringify(bookmark.extractedLinks || []),
             summary: bookmark.summary,
             reading_status: bookmark.readingStatus,
             priority: bookmark.priority,
@@ -476,6 +485,12 @@ export async function saveStoreToSupabase(store: BookmarkStore, userId: string):
         
       if (error) {
         console.error('Error saving bookmark:', error);
+
+        // If it's a duplicate key error, just continue with the next bookmark
+        if (error.code === '23505' && error.message.includes('unique_tweet_user')) {
+          console.warn('Duplicate bookmark detected, skipping:', bookmark.id);
+          continue;
+        }
         
         // Check for RLS errors and handle them gracefully
         if (error.code === '42501') {
@@ -484,6 +499,109 @@ export async function saveStoreToSupabase(store: BookmarkStore, userId: string):
         }
         
         return { success: false, error: error.message };
+      }
+    }
+
+    // Save AI analysis data
+    for (const bookmark of store.bookmarks) {
+      if (bookmark.aiAnalysis) {
+        // Check if the bookmark exists in the database
+        const { data: existingBookmark, error: fetchError } = await supabase
+          .from('twitter_bookmarks')
+          .select('id')
+          .eq('tweet_id', bookmark.id)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (fetchError) {
+          console.error('Error checking for existing bookmark for AI analysis:', fetchError);
+          continue; // Skip this bookmark and continue with others
+        }
+
+        if (existingBookmark) {
+          // Update the bookmark with AI analysis data
+          const { error: updateError } = await supabase
+            .from('twitter_bookmarks')
+            .update({
+              ai_analysis: JSON.stringify(bookmark.aiAnalysis),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingBookmark.id);
+
+          if (updateError) {
+            console.error('Error saving AI analysis:', updateError);
+          }
+        }
+      }
+    }
+
+    // Save reading queue data
+    // First, clear existing reading queue data for this user
+    const { error: clearQueueError } = await supabase
+      .from('reading_queue')
+      .delete()
+      .eq('user_id', userId);
+
+    if (clearQueueError) {
+      console.error('Error clearing reading queue:', clearQueueError);
+    } else {
+      // Insert new reading queue data
+      // For unread items
+      for (const bookmarkId of store.readingQueue.unread) {
+        // Get the database ID for this bookmark
+        const { data: bookmarkData } = await supabase
+          .from('twitter_bookmarks')
+          .select('id')
+          .eq('tweet_id', bookmarkId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (bookmarkData) {
+          await supabase.from('reading_queue').insert({
+            user_id: userId,
+            bookmark_id: bookmarkData.id,
+            status: 'unread',
+            added_at: new Date().toISOString()
+          });
+        }
+      }
+
+      // For reading items
+      for (const bookmarkId of store.readingQueue.reading) {
+        const { data: bookmarkData } = await supabase
+          .from('twitter_bookmarks')
+          .select('id')
+          .eq('tweet_id', bookmarkId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (bookmarkData) {
+          await supabase.from('reading_queue').insert({
+            user_id: userId,
+            bookmark_id: bookmarkData.id,
+            status: 'reading',
+            added_at: new Date().toISOString()
+          });
+        }
+      }
+
+      // For completed items
+      for (const bookmarkId of store.readingQueue.completed) {
+        const { data: bookmarkData } = await supabase
+          .from('twitter_bookmarks')
+          .select('id')
+          .eq('tweet_id', bookmarkId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (bookmarkData) {
+          await supabase.from('reading_queue').insert({
+            user_id: userId,
+            bookmark_id: bookmarkData.id,
+            status: 'completed',
+            added_at: new Date().toISOString()
+          });
+        }
       }
     }
     

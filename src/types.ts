@@ -13,10 +13,12 @@ export interface TwitterBookmark {
   media: string;
   sentiment?: 'positive' | 'negative' | 'neutral';
   aiTags?: string[];
+  suggestedTags?: string[];
   summary?: string;
   extractedLinks?: {
     url: string;
     title?: string;
+    context?: string;
     type: 'article' | 'image' | 'video' | 'other';
     lastChecked: string;
   }[];
@@ -68,6 +70,7 @@ export interface BookmarkStore {
   nestedCollections: {
     [key: string]: {
       bookmarks: string[];
+      name?: string;
       children: string[];
       parentId?: string;
       icon?: string;

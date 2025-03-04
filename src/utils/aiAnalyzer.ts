@@ -1,6 +1,8 @@
 import { TwitterBookmark } from '../types';
 import { analyzeBookmark as aiServiceAnalyze, findSimilarBookmarks as aiFindSimilarBookmarks } from '../services/aiService';
 import { extractLinks } from './linkExtractor';
+import { supabase } from './supabaseClient';
+import { getCurrentUser } from './supabaseStorage';
 
 // Simple word tokenization
 const tokenize = (text: string): string[] => {
@@ -123,29 +125,59 @@ const extractKeywords = (tokens: string[]): string[] => {
     .map(([word]) => word);
 };
 
-export async function analyzeBookmark(bookmark: TwitterBookmark): Promise<Partial<TwitterBookmark>> {
+export async function analyzeBookmark(bookmark: TwitterBookmark, saveToDb = true): Promise<Partial<TwitterBookmark>> {
   // Try AI service first
   try {
     const aiAnalysis = await aiServiceAnalyze(bookmark);
     if (aiAnalysis) {
       // Extract links from content
-      const extractedLinks = await extractLinks(bookmark.content);
+      const extractedLinks = await extractLinks(bookmark.content, true);
       
       // Combine existing tags with AI-generated topics
       const combinedTags = [...new Set([
         ...bookmark.tags,
         ...(aiAnalysis.aiTags || [])
-      ])];
+      ])]; 
+      const suggestedTags = aiAnalysis.suggestedTags || [];
+
+      // Save AI analysis to database immediately if user is authenticated
+      if (saveToDb) {
+        try {
+          const user = await getCurrentUser();
+          if (user) {
+            // Check if the bookmark exists in the database
+            const { data: existingBookmark } = await supabase
+              .from('twitter_bookmarks')
+              .select('id')
+              .eq('tweet_id', bookmark.id)
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (existingBookmark) {
+              // Update the bookmark with AI analysis data
+              await supabase
+                .from('twitter_bookmarks')
+                .update({
+                  ai_analysis: JSON.stringify(aiAnalysis.aiAnalysis),
+                  ai_tags: aiAnalysis.aiTags,
+                  suggested_tags: suggestedTags,
+                  extracted_links: JSON.stringify(extractedLinks)
+                })
+                .eq('id', existingBookmark.id);
+            }
+          }
+        } catch (dbError) {
+          console.error('Error saving AI analysis to database:', dbError);
+        }
+      }
 
       return {
         sentiment: aiAnalysis.sentiment,
         tags: combinedTags,
         extractedLinks,
         summary: aiAnalysis.summary,
-        aiAnalysis: {
-          ...aiAnalysis,
-          relatedBookmarks: []
-        }
+        aiAnalysis: aiAnalysis.aiAnalysis,
+        suggestedTags
       };
     }
   } catch (error) {
@@ -168,7 +200,7 @@ export async function analyzeBookmark(bookmark: TwitterBookmark): Promise<Partia
   const extractedLinks = await extractLinks(bookmark.content);
 
   return {
-    sentiment,
+    sentiment: sentiment.overall,
     tags: combinedTags,
     extractedLinks,
     summary
