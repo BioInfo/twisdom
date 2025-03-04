@@ -124,5 +124,5 @@ Developed with ❤️ by [J&S Group, LLC](https://github.com/BioInfo)
 - [React](https://reactjs.org/) for the frontend framework
 - [Tailwind CSS](https://tailwindcss.com/) for styling
 - [Vite](https://vitejs.dev/) for the build tool
-- [Windsurf](https://www.windsurf.io/) for the agentic IDE experience
+- [Windsurf](https://codeium.com/windsurf) for the agentic IDE experience
 - [bolt.new](https://bolt.new/) for rapid web app development
