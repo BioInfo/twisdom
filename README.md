@@ -1,6 +1,21 @@
-# Twisdom - Twitter Bookmark Manager
+<div align="center">
 
-Twisdom is an AI-enhanced Twitter bookmark manager that helps you organize, analyze, and get insights from your Twitter bookmarks.
+# Twisdom
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.0-blue.svg)](https://reactjs.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Latest-green.svg)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.0-blueviolet.svg)](https://tailwindcss.com/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-orange.svg)](https://openai.com/)
+
+🚀 An AI-enhanced Twitter bookmark manager that helps you organize, analyze, and get insights from your Twitter bookmarks.
+
+[Features](#features) • [Installation](#installation) • [Documentation](#documentation) • [Contributing](#contributing)
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-donate-yellow.svg)](https://buymeacoffee.com/JustinHJohnson)
+
+</div>
 
 ## Features
 
@@ -84,6 +99,16 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support the Project
+
+If you find Twisdom useful, consider buying me a coffee! Your support helps maintain and improve the project.
+
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/JustinHJohnson)
+
+## About
+
+Developed with ❤️ by [J&S Group, LLC](https://github.com/BioInfo)
 
 ## Acknowledgments
 
