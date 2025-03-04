@@ -17,6 +17,13 @@
 
 </div>
 
+## Screenshot
+
+<div align="center">
+<img src="docs/images/twisdom-screenshot.png" alt="Twisdom Application Screenshot" width="800">
+<p><i>Twisdom in action - AI-powered Twitter bookmark management</i></p>
+</div>
+
 ## Features
 
 - **Import Twitter Bookmarks**: Import your Twitter bookmarks from CSV export
