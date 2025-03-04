@@ -51,7 +51,7 @@ Twisdom is an AI-enhanced Twitter bookmark manager that helps you organize, anal
 
 4. Start Supabase locally (optional, for backend development):
    ```bash
-   ./start-supabase.sh
+   ./scripts/start-supabase.sh
    ```
 
 5. Start the development server:
