@@ -389,7 +389,7 @@ export async function loadStoreFromSupabase(userId: string): Promise<BookmarkSto
  * @param userId The user's ID
  * @returns Promise<{success: boolean; error?: string}> indicating success or failure with error details
  */
-export async function saveStoreToSupabase(store: BookmarkStore, userId: string, immediate: boolean = false): Promise<{success: boolean; error?: string}> {
+export async function saveStoreToSupabase(store: BookmarkStore, userId: string): Promise<{success: boolean; error?: string}> {
   try {
     // This is a simplified implementation that would need to be expanded
     // to handle updates, deletions, and more complex operations 

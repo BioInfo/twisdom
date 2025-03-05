@@ -7,12 +7,11 @@ import { CollectionsPage } from './pages/CollectionsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { TagsPage } from './pages/TagsPage';
 import { LinksPage } from './pages/LinksPage';
-import { parseCSV, saveCSV, loadSavedCSV } from './utils/bookmarkParser';
-import { analyzeBookmark } from './utils/aiAnalyzer';
+import { parseCSV, saveCSV } from './utils/bookmarkParser';
 import { TwitterBookmark, BookmarkStore } from './types';
 import { loadStore, saveStore, DEFAULT_STORE } from './utils/storage';
-import { loadStoreFromSupabase, saveStoreToSupabase, getCurrentUser, signInWithEmailAndPassword, signUpWithEmailAndPassword, signOut } from './utils/supabaseStorage';
-import { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { loadStoreFromSupabase, saveStoreToSupabase, signOut } from './utils/supabaseStorage';
+import { User } from '@supabase/supabase-js';
 import { supabase } from './utils/supabaseClient';
 import SupabaseAuth from './components/SupabaseAuth';
 import { migrateLocalStorageToSupabase } from './utils/migrateToSupabase';
@@ -191,46 +190,7 @@ export default function App() {
     }
   }, [store, user, loading, isLoggingOut]);
 
-  const handleLogin = async (email: string, password: string) => {
-    try {
-      const { success, user: authUser, error } = await signInWithEmailAndPassword(email, password);
-      if (success && authUser) {
-        setUser(authUser);
-        
-        // Load user's data from Supabase
-        const supabaseStore = await loadStoreFromSupabase(authUser.id);
-        if (supabaseStore) {
-          setStore(supabaseStore);
-        }
-        
-        setAuthModalOpen(false);
-      } else {
-        console.error('Login failed:', error);
-        return { success: false, error };
-      }
-      return { success, error };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  };
-
-  const handleSignUp = async (email: string, password: string) => {
-    try {
-      const { success, user: authUser, error } = await signUpWithEmailAndPassword(email, password);
-      if (success && authUser) {
-        setUser(authUser);
-        setAuthModalOpen(false);
-      } else {
-        console.error('Sign up failed:', error);
-        return { success: false, error };
-      }
-      return { success, error };
-    } catch (error) {
-      console.error('Sign up error:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  };
+  // Auth functions are handled by the SupabaseAuth component
 
   const handleLogout = async () => {
     try {

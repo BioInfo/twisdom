@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BookmarkCard } from '../components/BookmarkCard';
 import { FilterBar } from '../components/FilterBar';
 import { Reader } from '../components/Reader';
@@ -38,7 +38,7 @@ export function BookmarksPage({
   filteredAndSortedBookmarks,
 }: Props) {
   const [activeBookmark, setActiveBookmark] = useState<TwitterBookmark | null>(null);
-  const [addingToQueue, setAddingToQueue] = useState<string | null>(null);
+  // const [addingToQueue, setAddingToQueue] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
   const [similarBookmarks, setSimilarBookmarks] = useState<TwitterBookmark[]>([]);
   const [showingSimilarFor, setShowingSimilarFor] = useState<string | null>(null);
@@ -163,7 +163,7 @@ export function BookmarksPage({
     });
   };
 
-  const handleAnalyzeBookmark = async (bookmark: TwitterBookmark, updateTags = false) => {
+  const handleAnalyzeBookmark = async (bookmark: TwitterBookmark) => {
     if (isAnalyzing) return;
     setIsAnalyzing(bookmark.id);
     
@@ -178,10 +178,7 @@ export function BookmarksPage({
         throw new Error('Analysis failed - no results returned');
       }
 
-      // Combine existing tags with AI-generated tags if updateTags is true
-      const updatedTags = updateTags && analysis.aiTags
-        ? [...new Set([...bookmark.tags, ...analysis.aiTags])]
-        : bookmark.tags;
+      // Use AI-generated tags if available
 
       // Create updated bookmark with combined data
       const updatedBookmark: TwitterBookmark = {

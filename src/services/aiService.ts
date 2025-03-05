@@ -129,7 +129,10 @@ export async function generateSimilarBookmarks(bookmark: TwitterBookmark, allBoo
       max_tokens: 150
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+    if (!content) return [];
+    
+    const result = JSON.parse(content);
     return result.similarBookmarks as number[];
   } catch (error) {
     console.error('Similar bookmarks generation failed:', error);
@@ -166,7 +169,10 @@ export async function suggestCollections(bookmarks: TwitterBookmark[]) {
       max_tokens: 500
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+    if (!content) return [];
+    
+    const result = JSON.parse(content);
     return result.collections as Array<{ name: string; description: string }>;
   } catch (error) {
     console.error('Collection suggestions failed:', error);
@@ -209,14 +215,17 @@ export async function suggestTags(bookmarks: TwitterBookmark[]) {
       max_tokens: 500
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+    if (!content) return [];
+    
+    const result = JSON.parse(content);
     return result.suggestions as Array<{
       bookmarkId: string;
       suggestedTags: string[];
     }>;
   } catch (error) {
     console.error('Tag suggestions failed:', error);
-    return null;
+    return [];
   }
 }
 
@@ -260,7 +269,10 @@ export async function generateTagGroups(bookmarks: TwitterBookmark[]) {
       max_tokens: 1000
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+    if (!content) return [];
+    
+    const result = JSON.parse(content);
     return result.groups as Array<{
       name: string;
       description: string;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { deleteAllUserData, signOut } from '../utils/supabaseStorage';
 import { checkSupabaseStatus } from '../utils/supabaseClient';
