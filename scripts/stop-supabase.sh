@@ -17,11 +17,8 @@ if ! command -v supabase &> /dev/null; then
     exit 1
 fi
 
-# Check if Supabase is running
-if ! supabase status | grep -q "Started"; then
-    echo "Supabase is not currently running."
-    exit 0
-fi
+# Attempt to stop Supabase regardless of status check
+# as the status command output format may vary
 
 # Stop Supabase
 echo "Stopping Supabase server..."
